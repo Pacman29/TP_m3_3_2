@@ -1,5 +1,6 @@
 #include <iostream>
 #include <stack>
+#include <queue>
 #include <vector>
 using namespace std;
 
@@ -96,7 +97,7 @@ int  binTree<T,node_t>::print_in_order()
 template <typename T, typename node_t>
 int binTree<T,node_t>::max_wide()
 {
-    std::vector<size_t> layouts(this->depth,0);
+    std::vector<size_t> layers(this->depth,0);
     std::stack<node_t*> st;
     node_t* tmp = this->head;
     while(!st.empty() || tmp)
@@ -109,15 +110,15 @@ int binTree<T,node_t>::max_wide()
         else
         {
             tmp = st.top();
-            layouts[tmp->depth]++;
+            layers[tmp->depth]++;
             st.pop();
             tmp = tmp->right;
         }
     }
     int max = 0;
-    for(size_t i = 0; i<layouts.size();++i)
-        if(layouts[i]>max)
-            max = layouts[i];
+    for(size_t i = 0; i<layers.size();++i)
+        if(layers[i]>max)
+            max = layers[i];
     return max;
 }
 
@@ -126,24 +127,76 @@ template <typename T>
 class decartTree
 {
 public:
-    decartTree(): depth(0),head(NULL) {}
-    int add(T value,size_t priority);
+    decartTree(): head(NULL) {}
+    ~decartTree()
+    {
+        delete this->head;
+    }
+
+    void add(T value,size_t priority);
+    int max_wide();
 private:
 
     void split(node<T>* tree,T value,node<T> *&left,node<T> *&right);
     node<T>* merge(node<T>* left,node<T>* right);
-
-    size_t depth;
     node<T>* head;
+    void _add(node<T>*& _node, T value, size_t priority);
 };
+
+template <typename T>
+void decartTree<T>::add(T value, size_t priority)
+{
+    this->_add(this->head,value,priority);
+}
+
+template <typename T>
+int decartTree<T>::max_wide()
+{
+    if(!this->head)
+        return 0;
+
+    vector<int> count_on_layers;
+    int sum_on_layer = 0;
+    int depth = 0;
+    queue <node<T>*> q;
+
+    q.push(this->head);
+    while (!q.empty())
+    {
+        node<T>* tmp_node= q.front();
+        if(depth == tmp_node->depth)
+            sum_on_layer++;
+        else
+        {
+            count_on_layers.push_back(sum_on_layer);
+            sum_on_layer = 1;
+            depth = tmp_node->depth;
+        }
+        q.pop();
+        if(tmp_node->left)
+        {
+            tmp_node->left->depth++;
+            q.push(tmp_node->left);
+        }
+        if(tmp_node->right)
+        {
+            tmp_node->right->depth++;
+            q.push(tmp_node->right);
+        }
+        tmp_node->depth = 0;
+    }
+    int max = count_on_layers[0];
+    for(int i = 1; i<count_on_layers.size(); ++i)
+        if(count_on_layers[i]>max)
+            max = count_on_layers[i];
+    return max;
+}
 
 template <typename T>
 void decartTree<T>::split(node<T> *tree, T value, node<T> *&left, node<T> *&right)
 {
     if(!tree)
-    {
         left = right = NULL;
-    }
     else
     {
         if(value >= tree->value)
@@ -173,19 +226,48 @@ node<T> *decartTree<T>::merge(node<T> *left, node<T> *right)
     return right;
 }
 
+template <typename T>
+void decartTree<T>::_add(node<T> *&_node, T value, size_t priority)
+{
+    if(_node)
+    {
+        if(_node->priority < priority)
+        {
+            node<T> *left = NULL;
+            node<T> *right = NULL;
+
+            this->split(_node,value,left,right);
+
+            node<T> *new_node = new node<T>(value,0,priority);
+            new_node->left = left;
+            new_node->right = right;
+            _node = new_node;
+            return;
+        }
+        if(_node->value > value)
+            _add(_node->left,value,priority);
+        else
+            _add(_node->right,value,priority);
+    }
+    else
+        _node = new node<T>(value,0,priority);
+}
+
 
 int main(void)
 {
     int n = 0;
     cin>>n;
-    binTree<int> tree(compare<int>);
+    binTree<int> b_tree(compare<int>);
+    decartTree<int> d_tree;
     while(n)
     {
-        int value;
-        cin>> value;
-        tree.add(value);
+        int value,priority;
+        cin>> value >> priority;
+        b_tree.add(value);
+        d_tree.add(value,priority);
         n--;
     }
-    cout<<tree.max_wide();
+    cout<< b_tree.max_wide() - d_tree.max_wide();
     return 0;
 }
